@@ -24,7 +24,7 @@ const std::vector<const char*>deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#ifdef NDEBUG   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ã¿ªï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
+#ifdef NDEBUG   //????????????????
 const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
@@ -56,7 +56,7 @@ struct QueueFamilyIndices {
     }
 };
 
-//ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½Ï¸ï¿½ï¿½,ï¿½ï¿½ï¿½Ë¼ï¿½é½»ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½Òªï¿½ï¿½é½»ï¿½ï¿½ï¿½ï¿½ï¿½ë´°ï¿½Ú±ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ô£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//???????????????,??????????????????????????????????????????????????????????
 struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
@@ -92,6 +92,7 @@ private:
 
     std::vector<VkImageView>swapChainImageViews;
 
+    VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
 
     void initWindow() {
@@ -106,16 +107,17 @@ private:
     void initVulkan() {
 
         /*
-        * step1:Êµï¿½ï¿½
+        * step1:???
         */
         createInstance();
         setupDebugMessenger();
         createSurface();
-        pickPhysicalDevice();  //ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ÒªÑ¡ï¿½ï¿½Ò»ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½è±¸Ê¹ï¿½ï¿½
-        createLogicalDevice();  //ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½è±¸ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
-        createSwapChain();   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Öºï¿½ï¿½ï¿½Ä»Ë¢ï¿½ï¿½
-        createImageViews(); //Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Í¼ï¿½ñ´´½ï¿½ï¿½ï¿½Í¼
-        createGraphicsPipeline();
+        pickPhysicalDevice();  //?????????????????????????????????????????
+        createLogicalDevice();  //????????????????????
+        createSwapChain();   //??????????????????????????
+        createImageViews(); //???????????????????
+        createRenderPass(); // ´´½¨äÖÈ¾Á÷³Ì£¬¶¨ÒåÁË±»¹ÜÏßÊ¹ÓÃµÄ¸½×ÅµÄ¸ñÊ½ºÍÓÃÍ¾
+        createGraphicsPipeline();  //¶¨Òå¹ÜÏß²¼¾Ö£¬ÎÒµÄÀí½âÊÇÀïÃæ¶¨ÒåÁËºÍshader´«ÊäÊý¾ÝµÄ·½Ê½£¬»¹ÓÐ¹Ì¶¨¹¦ÄÜ½×¶Î£¬ÊÓ¿Ú¹âÕ¤»¯ÑÕÉ«»ìºÏµÈ
     }
 
     void mainLoop() {
@@ -126,6 +128,7 @@ private:
 
     void cleanup() {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyRenderPass(device, renderPass, nullptr);
 
         for (auto imageView : swapChainImageViews) {
             vkDestroyImageView(device, imageView, nullptr);
@@ -214,7 +217,7 @@ private:
 
     void pickPhysicalDevice() {
         uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(instance,&deviceCount,nullptr);  //ï¿½ï¿½È¡ï¿½Ô¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        vkEnumeratePhysicalDevices(instance,&deviceCount,nullptr);  //????????????
 
         if (deviceCount == 0) {
             throw std::runtime_error("failed to find GPUs with Vulkan support!");
@@ -223,7 +226,7 @@ private:
         std::vector<VkPhysicalDevice>devices(deviceCount);
         vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-        for (const auto& device:devices) {   //ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½è±¸
+        for (const auto& device:devices) {   //?????????????????????????
             if (isDeviceSuitable(device)) {
                 physicalDevice = device;
                 break;
@@ -253,7 +256,7 @@ private:
 
         VkPhysicalDeviceFeatures deviceFeatures{};
 
-        //ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½è±¸
+        //?????????
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
@@ -289,7 +292,7 @@ private:
         VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
         VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
-        //ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½
+        //?????????????????????????????????????????????????
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1; 
         if (swapChainSupport.capabilities.maxImageCount > 0 &&
             imageCount > swapChainSupport.capabilities.maxImageCount) {
@@ -341,7 +344,7 @@ private:
     void createImageViews() {
         swapChainImageViews.resize(swapChainImages.size());
 
-        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ÎªÃ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ñ´´½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½Í¼
+        //????????????????????????????????????
         for (size_t i = 0; i < swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -366,8 +369,46 @@ private:
         }
     }
 
+    void createRenderPass() {
+        //Ê¹ÓÃÒ»¸ö´ú±í½»»»Á´Í¼ÏñµÄÑÕÉ«»º³å¸½×Å
+        VkAttachmentDescription colorAttachment = {};
+        colorAttachment.format = swapChainImageFormat; //Ö¸¶¨ÑÕÉ«»º³å¸½×ÅµÄ¸ñÊ½
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;  //Ö¸¶¨²ÉÑùÊý
+        //loadop ºÍ storeopÓÃÓÚÖ¸¶¨ÔÚäÖÈ¾Ö®Ç°ºÍäÖÈ¾Ö®ºó¶Ô¸½×ÅÖÐµÄÊý¾Ý½øÐÐµÄ²Ù×÷
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        //×ÓÁ÷³ÌºÍ¸½×ÅÒýÓÃ
+        VkAttachmentReference colorAttachmentRef = {};
+        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkSubpassDescription subpass = {};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorAttachmentRef;
+
+        //¿ªÊ¼´´½¨renderpass
+        VkRenderPassCreateInfo renderPassInfo = {};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassInfo.attachmentCount = 1;
+        renderPassInfo.pAttachments = &colorAttachment;
+        renderPassInfo.subpassCount = 1;
+        renderPassInfo.pSubpasses = &subpass;
+
+        if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create render pass!");
+        }
+    }
+
     void createGraphicsPipeline() {
-        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½Ä¶ï¿½È¡
+        //?????????????
         auto vertShaderCode = readFile("shaders/vert.spv");
         auto fragShaderCode = readFile("shaders/frag.spv");
 
@@ -479,7 +520,7 @@ private:
         return availableFormats[0];
     }
 
-    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÑµÄ¿ï¿½ï¿½Ã³ï¿½ï¿½ï¿½Ä£Ê½
+    //????????????????
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
         for (const auto& availablePresentMode : availablePresentModes) {
             if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -490,7 +531,7 @@ private:
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§ï¿½Ç½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Í¼ï¿½ï¿½Ö±ï¿½ï¿½ï¿½
+    //????????????????????????
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
@@ -514,10 +555,10 @@ private:
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
         SwapChainSupportDetails details;
 
-        //ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        //???????????????
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device,surface,&details.capabilities);
 
-        //ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ÖµÄ¸ï¿½Ê½
+        //?????????????
         uint32_t formatCount;
         vkGetPhysicalDeviceSurfaceFormatsKHR(device,surface,&formatCount,nullptr);
         if (formatCount != 0) {
@@ -525,7 +566,7 @@ private:
             vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
         }
 
-        //ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Ä£Ê½
+        //?????????
         uint32_t presentModeCount;
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
         if (presentModeCount != 0) {
@@ -544,7 +585,7 @@ private:
 
         bool swapChainAdequate = false;
         if (extensionsSupported) {
-            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device); //ï¿½ï¿½é½»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½
+            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device); //???????????????
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
@@ -568,7 +609,7 @@ private:
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndices indices;
-        //ï¿½ï¿½ï¿½È»ï¿½È¡ï¿½è±¸ï¿½Ä¶ï¿½ï¿½Ð´Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½VkQueueFamilyPropertiesï¿½ï¿½ï¿½ï¿½
+        //?????????????????????????????????????VkQueueFamilyProperties????
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device,&queueFamilyCount,nullptr);
         std::vector<VkQueueFamilyProperties>queueFamilies(queueFamilyCount);
@@ -606,15 +647,15 @@ private:
         return extensions;
     }
 
-    bool checkValidationLayerSupport() {  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ãµï¿½ï¿½ï¿½Ö¤ï¿½ï¿½
+    bool checkValidationLayerSupport() {  //?????????????????
         uint32_t layerCount;
-        vkEnumerateInstanceLayerProperties(&layerCount,nullptr); //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ãµï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ð±ï¿½
+        vkEnumerateInstanceLayerProperties(&layerCount,nullptr); //??????????????????
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
 
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-        for (const char* layerNamee : validationLayers) {      //ï¿½ï¿½ï¿½validationLayersï¿½Ðµï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½availableLayersï¿½Ð±ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½
+        for (const char* layerNamee : validationLayers) {      //???validationLayers?????????????availableLayers??????????
             bool layerFound = false;
 
             for (const auto& layerProperties : availableLayers) {
@@ -632,7 +673,7 @@ private:
         return true;
     }
 
-    static std::vector<char>readFile(const std::string& filename) {   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½
+    static std::vector<char>readFile(const std::string& filename) {   //?????????
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {
@@ -646,7 +687,7 @@ private:
         return buffer;
     }
 
-    //ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ä»Øµï¿½ï¿½ï¿½ï¿½ï¿½
+    //??????????????????
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
