@@ -125,6 +125,8 @@ private:
     }
 
     void cleanup() {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+
         for (auto imageView : swapChainImageViews) {
             vkDestroyImageView(device, imageView, nullptr);
         }
@@ -150,18 +152,19 @@ private:
             throw std::runtime_error("validation layers requested, but not available!");
         }
 
-        VkApplicationInfo appInfo = {};
+        VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "ZHR";
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.pEngineName = "No Engine";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.apiVersion = VK_API_VERSION_1_0;
 
-        VkInstanceCreateInfo createInfo = {};
+        VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
 
-        auto extensions = getRequireExtensions();
+        auto extensions = getRequiredExtensions();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -248,8 +251,7 @@ private:
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
-        //ָ��ʹ�õ��豸����
-        VkPhysicalDeviceFeatures deviceFeatures = {};
+        VkPhysicalDeviceFeatures deviceFeatures{};
 
         //�����߼��豸
         VkDeviceCreateInfo createInfo{};
@@ -294,7 +296,7 @@ private:
             imageCount = swapChainSupport.capabilities.maxImageCount;
         }
 
-        VkSwapchainCreateInfoKHR createInfo = {};
+        VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         createInfo.surface = surface;
 
@@ -341,7 +343,7 @@ private:
 
         //�������н�����ͼ��Ϊÿ��������ͼ�񴴽�ͼ����ͼ
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-            VkImageViewCreateInfo createInfo = {};
+            VkImageViewCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             createInfo.image = swapChainImages[i];
             createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -490,7 +492,7 @@ private:
 
     //������Χ�ǽ������е�ͼ��ֱ���
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
-        if (capabilities.currentExtent.width != UINT32_MAX) {
+        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         }
         else {
@@ -593,8 +595,7 @@ private:
         return indices;
     }
 
-
-    std::vector<const char*> getRequireExtensions() {   //���ûص��������ܵ�����Ϣ
+    std::vector<const char*> getRequiredExtensions() {
         uint32_t glfwExtensionCount = 0;
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
