@@ -94,6 +94,9 @@ private:
 
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
+
+    std::vector<VkFramebuffer>swapChainFramebuffers;
 
     void initWindow() {
         glfwInit();
@@ -116,8 +119,9 @@ private:
         createLogicalDevice();  //????????????????????
         createSwapChain();   //??????????????????????????
         createImageViews(); //???????????????????
-        createRenderPass(); // 创建渲染流程，定义了被管线使用的附着的格式和用途
+        createRenderPass(); // 创建渲染流程，定义了被管线使用的附着的格式和用途,指定使用的颜色和深度缓冲以及采样数，渲染操作如何处理缓冲的内容
         createGraphicsPipeline();  //定义管线布局，我的理解是里面定义了和shader传输数据的方式，还有固定功能阶段，视口光栅化颜色混合等
+        createFramebuffers();
     }
 
     void mainLoop() {
@@ -127,6 +131,11 @@ private:
     }
 
     void cleanup() {
+        for (auto framebuffer : swapChainFramebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
+
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
@@ -384,7 +393,7 @@ private:
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-        //子流程和附着引用
+        //子流程和附着引用：一个渲染流程可以包含多个子流程，子流程依赖于上一流程处理后的帧缓冲那内容。
         VkAttachmentReference colorAttachmentRef = {};
         colorAttachmentRef.attachment = 0;
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -493,8 +502,60 @@ private:
             throw std::runtime_error("failed to create pipeline layout!");
         }
 
+        VkGraphicsPipelineCreateInfo pipelineInfo = {};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        //首先引用之前我们创建的两个着色器阶段
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        //然后引用设置好的固定管线部分
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = nullptr;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        //指定之前创建的管线布局
+        pipelineInfo.layout = pipelineLayout;
+        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.subpass = 0;
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
+
+         //创建管线对象
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create graphics pipeline!");
+        }
+
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    }
+
+    void createFramebuffers() {
+        //分配足够的空间来存储所有帧缓冲对象
+        swapChainFramebuffers.resize(swapChainImageViews.size());
+
+        //为交换链的每一个图像视图对象创建对应的帧缓冲
+        for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+            VkImageView attachments[] = {
+                swapChainImageViews[i]
+            };
+
+            VkFramebufferCreateInfo framebufferInfo = {};
+            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferInfo.renderPass = renderPass;  //指定帧缓冲需要兼容的渲染流程对象
+            framebufferInfo.attachmentCount = 1; //指定附着个数
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = swapChainExtent.width;
+            framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.layers = 1;
+            if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create framebuffer!");
+            }
+        }
+
+
     }
 
     VkShaderModule createShaderModule(const std::vector<char>& code) {
