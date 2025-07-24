@@ -98,6 +98,9 @@ private:
 
     std::vector<VkFramebuffer>swapChainFramebuffers;
 
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
+
     void initWindow() {
         glfwInit();
 
@@ -122,6 +125,8 @@ private:
         createRenderPass(); // 创建渲染流程，定义了被管线使用的附着的格式和用途,指定使用的颜色和深度缓冲以及采样数，渲染操作如何处理缓冲的内容
         createGraphicsPipeline();  //定义管线布局，我的理解是里面定义了和shader传输数据的方式，还有固定功能阶段，视口光栅化颜色混合等
         createFramebuffers();
+        createCommandPool();   //创建指令缓冲
+        createCommandBuffer(); //分配指令缓冲
     }
 
     void mainLoop() {
@@ -131,6 +136,8 @@ private:
     }
 
     void cleanup() {
+        vkDestroyCommandPool(device, commandPool, nullptr);
+
         for (auto framebuffer : swapChainFramebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
@@ -556,6 +563,91 @@ private:
         }
 
 
+    }
+
+    void createCommandPool() {
+        //绘制指令和内存传输指定等所有要执行的操作记录在一个指令缓冲对象中，然后提交给可以执行这些操作的队列才能执行。
+        //在程序初始化的时候准备好所有要执行的指令序列，在渲染时直接提交执行。多线程提交指令变得更加容易。
+        QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+        VkCommandPoolCreateInfo poolInfo = {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+        
+
+        if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create command pool!");
+        }
+    }
+
+    void createCommandBuffer() {
+
+        VkCommandBufferAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
+
+        if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate command buffers!");
+        }
+    }
+
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    {
+        //记录指令到指令缓冲中
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        //开始指令缓冲的记录操作，通过设置VkCommandBufferBeginInfo结构体来指定一些有关指令缓冲的使用细节。
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin recording command buffer!");
+        }
+
+        VkRenderPassBeginInfo renderPassInfo = {};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;   //指定渲染流程对象
+        renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];   //指定使用的帧缓冲对象
+        renderPassInfo.renderArea.offset = { 0,0 };       //renderArea指定用于渲染的区域，和附着大小一样
+        renderPassInfo.renderArea.extent = swapChainExtent;
+        VkClearValue clearColor = { 0.0f,0.0f,0.0f,1.0f };
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        //开始一个渲染流程，通过VkRenderPassBeginInfo结构体来指定使用的渲染流程对象
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+            //绑定图形管线
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+            VkViewport viewport{};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = (float)swapChainExtent.width;
+            viewport.height = (float)swapChainExtent.height;
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+            VkRect2D scissor{};
+            scissor.offset = { 0,0 };
+            scissor.extent = swapChainExtent;
+            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+            //提交绘制操作到指令缓冲中
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0); // 3:vertexCount,指定3哥顶点用于三角形的绘制；
+            // 1：instanceCount,用于实例渲染，为1时表示不进行实例渲染；
+            // 0：firstVertex，用于定义着色器变量gl_VertexIndex的值；
+            // 0：firstInstance,用于定义着色器变量gl_InstanceIndex的值。
+
+        //结束渲染流程
+        vkCmdEndRenderPass(commandBuffer);
+
+        //结束记录指令到指令缓冲中
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to record command buffer!");
+        }
     }
 
     VkShaderModule createShaderModule(const std::vector<char>& code) {
