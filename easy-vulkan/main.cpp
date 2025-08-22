@@ -94,9 +94,14 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {{ 0.0f,-0.5f},{1.0f,1.0f,1.0f}},
-    {{ 0.5f, 0.5f},{0.0f,1.0f,0.0f}},
-    {{-0.5f, 0.5f},{0.0f,0.0f,1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
 };
 
 class HelloTriangleApplication {
@@ -137,6 +142,8 @@ private:
     
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -177,6 +184,7 @@ private:
         createFramebuffers();
         createCommandPool();   //创建指令缓冲
         createVertexBuffer();  //创建顶点缓冲
+        createIndexBuffer();  //创建索引缓冲
         createCommandBuffers(); //分配指令缓冲
         createSyncObjects();
     }
@@ -203,6 +211,9 @@ private:
 
     void cleanup() {
         cleanupSwapChain();
+
+        vkDestroyBuffer(device, indexBuffer, nullptr);
+        vkFreeMemory(device, indexBufferMemory, nullptr);
 
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
@@ -721,6 +732,36 @@ private:
         vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
+    void createIndexBuffer() {
+        //该函数的作用，使用CPU可见的缓冲作为临时缓冲，使用显卡读取较快的缓冲作为真正的顶点缓冲
+        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,   //VK_BUFFER_USAGE_TRANSFER_SRC_BIT ： 缓冲可以被用作内存传输操作的数据来源
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        //填充顶点缓冲
+        void* data;
+        //1vkMapMemory函数允许通过给定的内存偏移值和内存大小访问特定的内存资源
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        //2将顶点数据复制到映射后的内存
+        memcpy(data, indices.data(), (size_t)bufferSize);
+        //3结束映射
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |   //VK_BUFFER_USAGE_TRANSFER_SRC_BIT ： 缓冲可以被用作内存传输操作的目的缓冲
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+        copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+    }
+
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
         VkBufferCreateInfo bufferInfo = {};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -855,8 +896,11 @@ private:
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
             //提交绘制操作到指令缓冲中
-            vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0); // 3:vertexCount,指定3哥顶点用于三角形的绘制；
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+            //vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0); // 3:vertexCount,指定3哥顶点用于三角形的绘制；
             // 1：instanceCount,用于实例渲染，为1时表示不进行实例渲染；
             // 0：firstVertex，用于定义着色器变量gl_VertexIndex的值；
             // 0：firstInstance,用于定义着色器变量gl_InstanceIndex的值。
