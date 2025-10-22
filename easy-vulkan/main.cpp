@@ -64,7 +64,7 @@ struct QueueFamilyIndices {
     }
 };
 
-//???????????????,??????????????????????????????????????????????????????????
+//交换链
 struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
@@ -98,7 +98,7 @@ struct Vertex {
     }
 };
 
-struct UniformBufferObject {
+struct UniformBufferObject { //定义要在着色器中使用的uniform数据
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
@@ -198,15 +198,15 @@ private:
         createSwapChain();   //交换链
         createImageViews(); //图像视图，任何使用VkImage对象，包括处于交换链中还有处于渲染管线中的，都需要创建一个VkImageView对象来绑定访问，描述了访问图像的方式。
         createRenderPass(); // 创建渲染流程，定义了被管线使用的附着的格式和用途,指定使用的颜色和深度缓冲以及采样数，渲染操作如何处理缓冲的内容
-        createDescriptorSetLayout();
+        createDescriptorSetLayout();  //设置描述符
         createGraphicsPipeline();  //定义管线布局，我的理解是里面定义了和shader传输数据的方式，还有固定功能阶段，视口光栅化颜色混合等
         createFramebuffers();
         createCommandPool();   //创建指令缓冲
         createVertexBuffer();  //创建顶点缓冲
         createIndexBuffer();  //创建索引缓冲
-        createUniformBuffers();
-        createDescriptorPool();
-        createDescriptorSets();
+        createUniformBuffers(); //为着色器包含UBO数据的缓冲对象。
+        createDescriptorPool(); //创建描述符池，目的是创建描述符集
+        createDescriptorSets();  //创建描述符集
         createCommandBuffers(); //分配指令缓冲
         createSyncObjects();
     }
@@ -383,7 +383,7 @@ private:
         }
     }
 
-    void createLogicalDevice() {
+    void createLogicalDevice() {   //创建逻辑设备
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -516,7 +516,7 @@ private:
         }
     }
 
-    void createRenderPass() {  
+    void createRenderPass() {    //定义了被管线使用的附着的用途
         //需要设置用于渲染的帧缓冲附着，需要指定使用的颜色和深度缓冲以及采样数，渲染操作如何处理缓冲的内容，所有的信息被包装为一个渲染流程对象。
         //使用一个代表交换链图像的颜色缓冲附着
         VkAttachmentDescription colorAttachment = {};
@@ -532,7 +532,8 @@ private:
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-        //子流程和附着引用：一个渲染流程可以包含多个子流程，子流程依赖于上一流程处理后的帧缓冲那内容。
+        //子流程和附着引用：一个渲染流程可以包含多个子流程，子流程依赖于上一流程处理后的帧缓冲内容。
+        //许多叠加的后期处理效果就是在上一次的处理结果上进行的
         VkAttachmentReference colorAttachmentRef = {};
         colorAttachmentRef.attachment = 0;
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -570,12 +571,12 @@ private:
         }
     }
 
-    void createDescriptorSetLayout() {
+    void createDescriptorSetLayout() { //创建描述符绑定信息
         VkDescriptorSetLayoutBinding uboLayoutBinding = {};
-        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.binding = 0;   //指定着色器使用的描述符绑定
         uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.pImmutableSamplers = nullptr;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;   //指定着色器使用的描述符类型
+        uboLayoutBinding.pImmutableSamplers = nullptr;  //用于和图像采样相关的描述符
         uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -621,7 +622,7 @@ private:
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
         vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};    //输入装配
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};    //输入装配，描述了定点数据定义了哪种类型的几何图元
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
@@ -632,14 +633,19 @@ private:
         viewportState.scissorCount = 1;
 
         VkPipelineRasterizationStateCreateInfo rasterizer{};    //光栅化
-        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizer.depthClampEnable = VK_FALSE;
-        rasterizer.rasterizerDiscardEnable = VK_FALSE;
-        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-        rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        rasterizer.depthBiasEnable = VK_FALSE;
+        //可以配置光栅化程序输出整个几何图元作为片段，还是只输出几何图元的边作为片段（线框模式）
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO; 
+        rasterizer.depthClampEnable = VK_FALSE; //如果为VK_TRUE表示在近平面和远平面外的片段会被截断为在近平面和远平面上，而不是直接丢弃这些片段。
+                                                //这对阴影贴图的生成很有用。
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;  //如果为VK_TRUE表示所有几何图元都不能通过光栅化阶段
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;  //指定几何图元生成片段的方式，可以是以下这些值：
+                                                        //VK_POLYGON_MODE_FILL:整个多边形，包括多边形内部都产生片段
+                                                        //VK_POLYGON_MODE_LINE:只有多边形的边会产生片段
+                                                        //VK_POLYGON_MODE_POINT:只有多边形的顶点会产生片段
+        rasterizer.lineWidth = 1.0f;    //指定光栅化后的线段宽度，以线宽所占的片段数目为单位。
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;  //指定使用的表面剔除类型
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;  //指定顺时针的顶点序是正面，还是逆时针的顶点序是正面
+        rasterizer.depthBiasEnable = VK_FALSE;   //对阴影贴图的深度很有作用
 
         VkPipelineMultisampleStateCreateInfo multisampling{};  //多重采样
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -651,6 +657,7 @@ private:
         colorBlendAttachment.blendEnable = VK_FALSE;
 
         VkPipelineColorBlendStateCreateInfo colorBlending{};   //颜色和混合
+        //片段着色器返回的片段颜色需要和原来帧缓冲中对应像素的颜色进行混合，混合的方式有下面两种：混合旧值和新值产生最终的颜色，使用位运算组合旧值和新值
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.logicOpEnable = VK_FALSE;
         colorBlending.logicOp = VK_LOGIC_OP_COPY;
@@ -666,7 +673,7 @@ private:
             VK_DYNAMIC_STATE_SCISSOR
         };
 
-        VkPipelineDynamicStateCreateInfo dynamicState{};    //动态状态设置
+        VkPipelineDynamicStateCreateInfo dynamicState{};    //动态状态设置，不重建管线的情况下进行动态修改。
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
@@ -711,6 +718,7 @@ private:
     }
 
     void createFramebuffers() {
+        //为交换链中的每个图像创建对应的帧缓冲
         //分配足够的空间来存储所有帧缓冲对象
         swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -737,10 +745,12 @@ private:
     }
 
     void createCommandPool() {
+        //创建指令池对象，指令池对象分配指令缓冲
         //绘制指令和内存传输指定等所有要执行的操作记录在一个指令缓冲对象中，然后提交给可以执行这些操作的队列才能执行。
         //在程序初始化的时候准备好所有要执行的指令序列，在渲染时直接提交执行。多线程提交指令变得更加容易。
         QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
+        //每个指令池对象分配的指令缓冲对象只能提交给一个特定类型的队列，我们使用的是绘制指令，它可以被提交给支持图形操作的队列
         VkCommandPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -756,8 +766,10 @@ private:
         //该函数的作用，使用CPU可见的缓冲作为临时缓冲，使用显卡读取较快的缓冲作为真正的顶点缓冲
         VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
+        //暂存缓冲
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
+        //createBuffer:创建缓冲+分配内存
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,   //VK_BUFFER_USAGE_TRANSFER_SRC_BIT ： 缓冲可以被用作内存传输操作的数据来源
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -765,6 +777,7 @@ private:
         //填充顶点缓冲
         void* data;
         //1vkMapMemory函数允许通过给定的内存偏移值和内存大小访问特定的内存资源
+        //vkMapMemory将缓冲关联的内存映射到cpu可以访问的内存
         vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
         //2将顶点数据复制到映射后的内存
         memcpy(data, vertices.data(), (size_t)bufferSize);
@@ -783,7 +796,7 @@ private:
 
     void createIndexBuffer() {
         //该函数的作用，使用CPU可见的缓冲作为临时缓冲，使用显卡读取较快的缓冲作为真正的顶点缓冲
-        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+        VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -812,6 +825,7 @@ private:
     }
 
     void createUniformBuffers() {
+        //因为同时并行渲染多帧的缘故，因此需要多个uniform缓冲，来满足多帧并行渲染的需要
         VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
         uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -890,6 +904,10 @@ private:
         }
 
         //上面是创建缓冲，下面则是为创建的缓冲分配内存
+        //VkMemoryrequirements结构体有下面这三个成员变量：
+        //1、size:缓冲需要的内存的字节大小，可能和bufferInfo.size的值不同
+        //2、alignment:缓冲在实际被分配的内存中的开始位置。它的值依赖于bufferInfo.usage和bufferInfo.flags
+        //3、memoryTypebits：指示适合该缓冲使用的内存类型的位域
         VkMemoryRequirements memRequirements;
         vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
@@ -955,6 +973,8 @@ private:
     }
 
     void createCommandBuffers() {
+        //分配指令缓冲，谁分配的？指令池；分配的作用？使用指令缓冲来记录绘制指令
+        //因为绘制操作是在帧缓冲上进行的，需要为交换链中的每一个图像分配一个指令缓冲对象
         commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1073,16 +1093,19 @@ private:
         //step1：从交换链获取一张图像
         //step2：对帧缓冲附着执行指令缓冲中的渲染指令
         //step3：返回渲染后的图像到交换链进行呈现操作
-        // 拿 --- 渲染 --- 放
+        // 拿 --- 渲染 --- 放（这种需要保证一定顺序执行的程序，一般都要进行同步操作）
         //上面这些操作每一个都是通过一个函数调用设置的，但每个操作的实际执行却是异步进行的。
         //函数调用会在操作实际结束前返回，并且操作的实际执行顺序也是不确定的。
         //需要操作的执行能按照一定的顺序，所以就需要进行同步操作。
         //栅栏：对应用程序本身和渲染操作进行同步（如果主机需要知道GPU何时完成某件事，我们使用栅栏）
         //信号量：对一个指定队列内的操作或多个不同指令队列的操作进行同步。
+        //（可以通过调用vkWaitForFences函数查询栅栏的状态，但不能查询信号量的状态）
 
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         //从交换链中获取一张图像
         uint32_t imageIndex;
+        //第一个参数使用的是逻辑设备对象，第二个参数是要获取图像的交换链，第三个参数是图像获取的超时时间
+        //第四个参数是用于指定图像可用于通知的同步对象。最后一个参数用于输出可用的交换链图像的索引
         VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -1093,7 +1116,7 @@ private:
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        updateUniformBuffer(currentFrame);
+        updateUniformBuffer(currentFrame); //可以在每一帧产生一个新的变换矩阵
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
@@ -1258,7 +1281,7 @@ private:
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndices indices;
-        //?????????????????????????????????????VkQueueFamilyProperties????
+        //获取设备的队列族个数，然后分配数组存储队列族的VkQueueFamilyPropertiex对象
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device,&queueFamilyCount,nullptr);
         std::vector<VkQueueFamilyProperties>queueFamilies(queueFamilyCount);
