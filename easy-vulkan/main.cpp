@@ -121,12 +121,18 @@ const std::vector<Vertex> vertices = {
     {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
     {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
     {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+
+    { { -0.5f, -0.5f, 0.5f }, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f} },
+    {{0.5f, -0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 };
 
 const std::vector<uint16_t> indices = {
     0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
+    4, 5, 6, 6, 7, 4,
+    8, 9, 10,10,11,8
 };
 
 class HelloTriangleApplication {
@@ -209,10 +215,6 @@ private:
     }
 
     void initVulkan() {
-
-        /*
-        * step1:???
-        */
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -469,6 +471,7 @@ private:
     }
 
     void createSwapChain() {
+        //交换链本质上是一个包含了若干等待呈现的图像队列
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
 
         VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -535,6 +538,7 @@ private:
     }
 
     void createRenderPass() {    //定义了被管线使用的附着的用途
+        //核心作用就是指定附着的用途，颜色附着，深度附着，相当渲染前的一些初始化设置
         //需要设置用于渲染的帧缓冲附着，需要指定使用的颜色和深度缓冲以及采样数，渲染操作如何处理缓冲的内容，所有的信息被包装为一个渲染流程对象。
         //使用一个代表交换链图像的颜色缓冲附着
         VkAttachmentDescription colorAttachment = {};
@@ -566,13 +570,15 @@ private:
         //子流程和附着引用：一个渲染流程可以包含多个子流程，子流程依赖于上一流程处理后的帧缓冲内容。
         //许多叠加的后期处理效果就是在上一次的处理结果上进行的
         VkAttachmentReference colorAttachmentRef = {};
-        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.attachment = 0; //指定要引用的附着在附着描述结构体数组中的索引
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        //对应我们在片段着色器中使用的layout(location = 0)out vec4 outColor语句
 
         VkAttachmentReference depthAttachmentRef{};
         depthAttachmentRef.attachment = 1;
         depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+        
         VkSubpassDescription subpass = {};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
@@ -590,7 +596,7 @@ private:
         dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 
-        //开始创建renderpass
+        //开始创建renderpass对象
         std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -839,6 +845,7 @@ private:
         throw std::runtime_error("failed to find supported format!");
     }
 
+    //查找合适的深度格式
     VkFormat findDepthFormat() {
         return findSupportedFormat(
             { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
@@ -919,10 +926,11 @@ private:
 
     VkImageView createImageView(VkImage image,VkFormat format, VkImageAspectFlags aspectFlags)
     {
+        //任何VkImage对象，包括处于交换链中，处于渲染管线中的，都需要我们创建一个VkimageView对象来绑定访问它
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;  //指定图像被看做是一维纹理、二维纹理、三维纹理还是立方体贴图
         viewInfo.format = format;
         viewInfo.subresourceRange.aspectMask = aspectFlags;
         viewInfo.subresourceRange.baseMipLevel = 0;
@@ -1553,10 +1561,8 @@ private:
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
         SwapChainSupportDetails details;
 
-        //???????????????
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device,surface,&details.capabilities);
 
-        //?????????????
         uint32_t formatCount;
         vkGetPhysicalDeviceSurfaceFormatsKHR(device,surface,&formatCount,nullptr);
         if (formatCount != 0) {
@@ -1564,7 +1570,6 @@ private:
             vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
         }
 
-        //?????????
         uint32_t presentModeCount;
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
         if (presentModeCount != 0) {
